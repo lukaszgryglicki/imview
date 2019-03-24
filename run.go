@@ -14,7 +14,7 @@ type ImagesData struct {
 	n      int
 	images []image.Image
 	rgbas  []*image.RGBA
-	ready  []bool
+	status []int
 	names  []string
 }
 
@@ -22,7 +22,7 @@ var gwindow *Window
 var gdata ImagesData
 
 // InitProcessNextImages - init structures for parallel processing
-func InitProcessNextImages(fns []string) error {
+func InitProcessNextImages(fns []string) {
 	n := len(fns)
 	var (
 		emptyImage image.Image
@@ -32,63 +32,93 @@ func InitProcessNextImages(fns []string) error {
 		gdata.names = append(gdata.names, fn)
 		gdata.images = append(gdata.images, emptyImage)
 		gdata.rgbas = append(gdata.rgbas, emptyRGBA)
-		gdata.ready = append(gdata.ready, false)
+		gdata.status = append(gdata.status, 0)
 	}
 	gdata.n = n
-	return nil
+	fmt.Printf("%d images\n", n)
 }
 
 // ProcessNextImages - process N next unloaded images
-func ProcessNextImages(ni int) {
-	m := make(map[int]struct{})
+func ProcessNextImages(ni int) int {
+	if ni <= 0 {
+		return -1
+	}
+	runtime.UnlockOSThread()
+	defer runtime.LockOSThread()
+	m := []int{}
 	n := 0
-	for i := range gdata.ready {
-		if !gdata.ready[i] {
-			m[i] = struct{}{}
-			n++
-		}
-		if n == ni {
-			break
+	e := 0
+	for i := range gdata.status {
+		if gdata.status[i] == 0 {
+			m = append(m, i)
 		}
 	}
 	thrN := runtime.NumCPU()
 	nT := 0
-	ch := make(chan struct{})
-	for idx := range m {
-		go func(i int, c chan (struct{})) {
-			gdata.Load(i)
-			c <- struct{}{}
+	ch := make(chan error)
+	for _, idx := range m {
+		go func(i int, c chan error) {
+			c <- gdata.Load(i)
 		}(idx, ch)
 		nT++
 		if nT == thrN {
-			<-ch
+			r := <-ch
 			nT--
+			if r == nil {
+				n++
+				if n == ni {
+					break
+				}
+			} else {
+				e++
+			}
 		}
 	}
 	for nT > 0 {
-		<-ch
+		r := <-ch
 		nT--
+		if r == nil {
+			n++
+		} else {
+			e++
+		}
 	}
+	if n > 0 || e > 0 {
+		fmt.Printf("Preloaded %d images (%d errors)\n", n, e)
+	}
+	if n > 0 {
+		return 1
+	}
+	if e > 0 {
+		return -1
+	}
+	return 0
 }
 
 // Load image at given index
-func (imd *ImagesData) Load(i int) {
-	if imd.ready[i] {
-		return
+func (imd *ImagesData) Load(i int) error {
+	if imd.status[i] != 0 {
+		if imd.status[i] == -1 {
+			return fmt.Errorf("image %d/%s is marked as failed", i, imd.names[i])
+		}
+		return nil
 	}
 	im, err := LoadImage(imd.names[i])
 	if err != nil {
+		imd.status[i] = -1
 		fmt.Printf("Load: %s: %+v\n", imd.names[i], err)
-		return
+		return err
 	}
 	imd.images[i] = im
 	imd.rgbas[i] = ImageToRGBA(im)
-	imd.ready[i] = true
+	imd.status[i] = 1
+	fmt.Printf("Loaded %d image\n", i)
+	return nil
 }
 
 func glInit() error {
-	runtime.LockOSThread()
 
+	runtime.LockOSThread()
 	if err := gl.Init(); err != nil {
 		fmt.Printf("gl.Init: %+v\n", err)
 		return err
@@ -152,6 +182,7 @@ func keyboardCallbackFunc(w *glfw.Window, key glfw.Key, scancode int, action glf
 		} else if key == glfw.Key0 {
 			ProcessNextImages(2000000000)
 		}
+		fmt.Printf("Current: %d/%d: %s\n", gwindow.C, gwindow.Data.n, gwindow.Data.names[gwindow.C])
 	}
 }
 
@@ -164,6 +195,7 @@ func ShowSingle(image image.Image, rgba *image.RGBA) error {
 	}
 	defer glfw.Terminate()
 
+	runtime.LockOSThread()
 	window, err := NewWindow(image)
 	if err != nil {
 		fmt.Printf("NewWindow: %+v\n", err)
@@ -171,8 +203,9 @@ func ShowSingle(image image.Image, rgba *image.RGBA) error {
 	}
 	gdata.images[0] = image
 	gdata.rgbas[0] = rgba
-	gdata.ready[0] = true
+	gdata.status[0] = 1
 	window.Data = &gdata
+	window.SetTitle(window.Data.names[0])
 
 	// Keyboard
 	gwindow = window

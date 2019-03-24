@@ -19,9 +19,33 @@ type Window struct {
 	C          int
 }
 
+func newWindowWithPanic(f func(image.Image) (*Window, error), x image.Image) (r interface{}, w *Window, e error) {
+	fmt.Printf("newWindowWithPanic: start\n")
+	defer func() {
+		r = recover()
+		fmt.Printf("newWindowWithPanic: defer -> %+v\n", r)
+	}()
+	w, e = f(x)
+	fmt.Printf("newWindowWithPanic: end\n")
+	return
+}
+
 // NewWindow - creates a new window
 func NewWindow(im image.Image) (*Window, error) {
+	fmt.Printf("NewWindow: start\n")
+	r, w, e := newWindowWithPanic(newWindowInternal, im)
+	err, ok := r.(error)
+	if ok {
+      fmt.Printf("NewWindow: panic: %+v\n", err)
+	}
+	fmt.Printf("NewWindow: end\n")
+	return w, e
+}
+
+// newWindowInternal - creates a new window
+func newWindowInternal(im image.Image) (*Window, error) {
 	const maxSize = 1200
+	fmt.Printf("newWindowInternal: start\n")
 	w := im.Bounds().Size().X
 	h := im.Bounds().Size().Y
 	a := float64(w) / float64(h)
@@ -39,7 +63,6 @@ func NewWindow(im image.Image) (*Window, error) {
 
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-	// TODO: This sometimes fails with CGO segv
 	window, err := glfw.CreateWindow(w, h, os.Args[0], nil, nil)
 	if err != nil {
 		fmt.Printf("glfw.CreateWindow: %+v\n", err)
@@ -53,6 +76,7 @@ func NewWindow(im image.Image) (*Window, error) {
 	texture.SetImage(im)
 	result := &Window{window, im, texture, false, nil, 0}
 	result.SetRefreshCallback(result.onRefresh)
+	fmt.Printf("newWindowInternal: end\n")
 	return result, nil
 }
 
@@ -161,7 +185,6 @@ func (window *Window) Move(offset int) {
 		fmt.Printf("Move(%d) from %d to %d, ok: %v\n", offset, prev, window.C, ok)
 		if ok {
 			window.SetImageRGBA(window.Data.images[window.C], window.Data.rgbas[window.C])
-			window.SetTitle(window.Data.names[window.C])
 		}
 	}
 }
