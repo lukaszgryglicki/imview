@@ -1,6 +1,6 @@
-GO_BIN_FILES=cmd/imview/main.go
+GO_BIN_FILES=cmd/imview/main.go cmd/iview/main.go
 GO_LIB_FILES=run.go	texture.go util.go window.go
-GO_BIN_CMDS=imview
+GO_BIN_CMDS=imview iview
 GO_ENV=CGO_ENABLED=1
 GO_BUILD=go build -ldflags '-s -w'
 GO_INSTALL=go install -ldflags '-s'
@@ -11,13 +11,16 @@ GO_CONST=goconst
 GO_IMPORTS=goimports -w
 GO_USEDEXPORTS=usedexports
 GO_ERRCHECK=errcheck -asserts -ignore '[FS]?[Pp]rint*'
-BINARIES=imview
+BINARIES=imview iview
 STRIP=strip
 
 all: check ${BINARIES}
 
 imview: cmd/imview/main.go ${GO_LIB_FILES}
 	 ${GO_ENV} ${GO_BUILD} -o imview cmd/imview/main.go
+
+iview: cmd/iview/main.go ${GO_LIB_FILES}
+	 ${GO_ENV} ${GO_BUILD} -o iview cmd/iview/main.go
 
 fmt: ${GO_BIN_FILES} ${GO_LIB_FILES}
 	./for_each_go_file.sh "${GO_FMT}"
@@ -28,6 +31,7 @@ lint: ${GO_BIN_FILES} ${GO_LIB_FILES}
 vet: ${GO_BIN_FILES} ${GO_LIB_FILES}
 	go vet *.go
 	go vet cmd/imview/main.go
+	go vet cmd/iview/main.go
 
 imports: ${GO_BIN_FILES} ${GO_LIB_FILES}
 	./for_each_go_file.sh "${GO_IMPORTS}"

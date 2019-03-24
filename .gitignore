@@ -2,4 +2,6 @@
 *.jpg
 *.bmp
 *.gif
+*.swp
 /imview
+/iview

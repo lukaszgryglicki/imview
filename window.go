@@ -3,6 +3,7 @@ package imview
 import (
 	"fmt"
 	"image"
+	"os"
 
 	"github.com/go-gl/gl/v3.2-compatibility/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -11,8 +12,9 @@ import (
 // Window - holds window data
 type Window struct {
 	*glfw.Window
-	Image   image.Image
-	Texture *Texture
+	Image      image.Image
+	Texture    *Texture
+	Fullscreen bool
 }
 
 // NewWindow - creates a new window
@@ -35,7 +37,7 @@ func NewWindow(im image.Image) (*Window, error) {
 
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-	window, err := glfw.CreateWindow(w, h, "imview", nil, nil)
+	window, err := glfw.CreateWindow(w, h, os.Args[0], nil, nil)
 	if err != nil {
 		fmt.Printf("glfw.CreateWindow: %+v\n", err)
 		return nil, err
@@ -46,9 +48,22 @@ func NewWindow(im image.Image) (*Window, error) {
 
 	texture := NewTexture()
 	texture.SetImage(im)
-	result := &Window{window, im, texture}
+	result := &Window{window, im, texture, false}
 	result.SetRefreshCallback(result.onRefresh)
 	return result, nil
+}
+
+// ToggleFullscreen - toggles fullscreen mode
+func (window *Window) ToggleFullscreen() {
+	monitor := glfw.GetPrimaryMonitor()
+	mode := monitor.GetVideoMode()
+	if !window.Fullscreen {
+		window.SetMonitor(monitor, 0, 0, mode.Width, mode.Height, mode.RefreshRate)
+		window.Fullscreen = true
+	} else {
+		window.SetMonitor(nil, 0, 0, mode.Width, mode.Height, mode.RefreshRate)
+		window.Fullscreen = false
+	}
 }
 
 // SetImage - sets window image
