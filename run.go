@@ -5,13 +5,18 @@ import (
 	"image"
 	"runtime"
 
-	"github.com/go-gl/gl/v3.2-compatibility/gl"
+	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 )
+
+func init() {
+	runtime.LockOSThread()
+}
 
 // ImagesData - holds all remaining images
 type ImagesData struct {
 	n      int
+	l      int
 	images []image.Image
 	rgbas  []*image.RGBA
 	status []int
@@ -43,12 +48,11 @@ func ProcessNextImages(ni int) int {
 	if ni <= 0 {
 		return -1
 	}
-	runtime.UnlockOSThread()
-	defer runtime.LockOSThread()
 	m := []int{}
 	n := 0
 	e := 0
-	for i := range gdata.status {
+	for idx := range gdata.status {
+		i := (idx + gwindow.C) % gdata.n
 		if gdata.status[i] == 0 {
 			m = append(m, i)
 		}
@@ -95,6 +99,35 @@ func ProcessNextImages(ni int) int {
 	return 0
 }
 
+// UnprocessNextImages - free N processed images
+func UnprocessNextImages(ni int) int {
+	if ni <= 0 {
+		return -1
+	}
+	var (
+		im   image.Image
+		rgba *image.RGBA
+		n    int
+	)
+	for i := range gdata.status {
+		if gdata.status[i] == 1 {
+			gdata.images[i] = im
+			gdata.rgbas[i] = rgba
+			gdata.status[i] = 0
+			n++
+			if n == ni {
+				break
+			}
+		}
+	}
+	gdata.l -= n
+	if n > 0 {
+		fmt.Printf("Unloaded %d images\n", n)
+		return 1
+	}
+	return 0
+}
+
 // Load image at given index
 func (imd *ImagesData) Load(i int) error {
 	if imd.status[i] != 0 {
@@ -112,13 +145,12 @@ func (imd *ImagesData) Load(i int) error {
 	imd.images[i] = im
 	imd.rgbas[i] = ImageToRGBA(im)
 	imd.status[i] = 1
+	gdata.l ++
 	fmt.Printf("Loaded %d image\n", i)
 	return nil
 }
 
 func glInit() error {
-
-	runtime.LockOSThread()
 	if err := gl.Init(); err != nil {
 		fmt.Printf("gl.Init: %+v\n", err)
 		return err
@@ -131,58 +163,69 @@ func glInit() error {
 	return nil
 }
 
+func loadStats() {
+	str := fmt.Sprintf("(%d/%d)|", gdata.l, gdata.n)
+	for _, status := range gdata.status {
+		if status == -1 {
+			str += "-"
+		} else if status == 1 {
+			str += "#"
+		} else {
+			str += " "
+		}
+	}
+	fmt.Printf("%s|\n", str)
+}
+
 func keyboardCallbackFunc(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	if action == glfw.Press || action == glfw.Repeat {
 		if key == glfw.KeyEscape || key == glfw.KeyQ {
 			w.SetShouldClose(true)
+		} else if key == glfw.KeyL {
+			loadStats()
 		} else if key == glfw.KeyF {
 			gwindow.ToggleFullscreen()
 		} else if key == glfw.KeyRight {
 			gwindow.Move(1)
-			ProcessNextImages(1)
 		} else if key == glfw.KeyUp {
 			gwindow.Move(10)
-			ProcessNextImages(1)
 		} else if key == glfw.KeyPageUp {
 			gwindow.Move(100)
-			ProcessNextImages(1)
 		} else if key == glfw.KeyEnd {
 			gwindow.Move(2000000000)
-			ProcessNextImages(1)
 		} else if key == glfw.KeyLeft {
 			gwindow.Move(-1)
-			ProcessNextImages(1)
 		} else if key == glfw.KeyDown {
 			gwindow.Move(-10)
-			ProcessNextImages(1)
 		} else if key == glfw.KeyPageDown {
 			gwindow.Move(-100)
-			ProcessNextImages(1)
 		} else if key == glfw.KeyHome {
 			gwindow.Move(-2000000000)
-			ProcessNextImages(1)
 		} else if key == glfw.Key1 {
 			ProcessNextImages(1)
 		} else if key == glfw.Key2 {
-			ProcessNextImages(2)
-		} else if key == glfw.Key3 {
 			ProcessNextImages(5)
-		} else if key == glfw.Key4 {
+		} else if key == glfw.Key3 {
 			ProcessNextImages(10)
+		} else if key == glfw.Key4 {
+			ProcessNextImages(30)
 		} else if key == glfw.Key5 {
-			ProcessNextImages(20)
-		} else if key == glfw.Key6 {
-			ProcessNextImages(50)
-		} else if key == glfw.Key7 {
 			ProcessNextImages(100)
+		} else if key == glfw.Key6 {
+			UnprocessNextImages(1)
+		} else if key == glfw.Key7 {
+			UnprocessNextImages(5)
 		} else if key == glfw.Key8 {
-			ProcessNextImages(200)
+			UnprocessNextImages(10)
 		} else if key == glfw.Key9 {
-			ProcessNextImages(1000)
+			UnprocessNextImages(30)
 		} else if key == glfw.Key0 {
-			ProcessNextImages(2000000000)
+			UnprocessNextImages(100)
 		}
-		fmt.Printf("Current: %d/%d: %s\n", gwindow.C, gwindow.Data.n, gwindow.Data.names[gwindow.C])
+		if gdata.l > 300 {
+			UnprocessNextImages(gdata.l - 300)
+		}
+		fmt.Printf("Current: %d/%d: %s (%d cached)\n", gwindow.C, gdata.n, gdata.names[gwindow.C], gdata.l)
 	}
 }
 
@@ -195,7 +238,6 @@ func ShowSingle(image image.Image, rgba *image.RGBA) error {
 	}
 	defer glfw.Terminate()
 
-	runtime.LockOSThread()
 	window, err := NewWindow(image)
 	if err != nil {
 		fmt.Printf("NewWindow: %+v\n", err)
@@ -205,7 +247,8 @@ func ShowSingle(image image.Image, rgba *image.RGBA) error {
 	gdata.rgbas[0] = rgba
 	gdata.status[0] = 1
 	window.Data = &gdata
-	window.SetTitle(window.Data.names[0])
+  title := fmt.Sprintf("%d: %s (cached %d/%d)", window.C, window.Data.names[window.C], window.Data.l, window.Data.n)
+	window.SetTitle(title)
 
 	// Keyboard
 	gwindow = window

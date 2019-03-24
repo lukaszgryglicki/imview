@@ -5,7 +5,7 @@ import (
 	"image"
 	"os"
 
-	"github.com/go-gl/gl/v3.2-compatibility/gl"
+	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 )
 
@@ -39,7 +39,6 @@ func NewWindow(im image.Image) (*Window, error) {
 
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-	// TODO: This sometimes fails with CGO segv
 	window, err := glfw.CreateWindow(w, h, os.Args[0], nil, nil)
 	if err != nil {
 		fmt.Printf("glfw.CreateWindow: %+v\n", err)
@@ -158,10 +157,11 @@ func (window *Window) Move(offset int) {
 				break
 			}
 		}
-		fmt.Printf("Move(%d) from %d to %d, ok: %v\n", offset, prev, window.C, ok)
+    fmt.Printf("Move(%d) from %d to %d (cached %d/%d), ok: %v\n", offset, prev, window.C, window.Data.l, window.Data.n, ok)
 		if ok {
 			window.SetImageRGBA(window.Data.images[window.C], window.Data.rgbas[window.C])
-			window.SetTitle(window.Data.names[window.C])
+      title := fmt.Sprintf("%d: %s (cached %d/%d)", window.C, window.Data.names[window.C], window.Data.l, window.Data.n)
+			window.SetTitle(title)
 		}
 	}
 }

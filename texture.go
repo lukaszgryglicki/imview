@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/draw"
 
-	"github.com/go-gl/gl/v3.2-compatibility/gl"
+	"github.com/go-gl/gl/v2.1/gl"
 )
 
 // Texture - data struct
