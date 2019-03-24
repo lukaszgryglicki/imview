@@ -15,6 +15,8 @@ type Window struct {
 	Image      image.Image
 	Texture    *Texture
 	Fullscreen bool
+	Data       *ImagesData
+	C          int
 }
 
 // NewWindow - creates a new window
@@ -48,7 +50,7 @@ func NewWindow(im image.Image) (*Window, error) {
 
 	texture := NewTexture()
 	texture.SetImage(im)
-	result := &Window{window, im, texture, false}
+	result := &Window{window, im, texture, false, nil, 0}
 	result.SetRefreshCallback(result.onRefresh)
 	return result, nil
 }
@@ -70,6 +72,13 @@ func (window *Window) ToggleFullscreen() {
 func (window *Window) SetImage(im image.Image) {
 	window.Image = im
 	window.Texture.SetImage(im)
+	window.Draw()
+}
+
+// SetImageRGBA - sets window image and its already processed RGBA data
+func (window *Window) SetImageRGBA(im image.Image, rgba *image.RGBA) {
+	window.Image = im
+	window.Texture.SetRGBA(rgba)
 	window.Draw()
 }
 
@@ -114,4 +123,20 @@ func (window *Window) DrawImage() {
 	gl.TexCoord2f(0, 0)
 	gl.Vertex2f(-x, y)
 	gl.End()
+}
+
+// Move - moving between images
+func (window *Window) Move(offset int) {
+	prev := window.C
+	window.C += offset
+	if window.C < 0 {
+		window.C = 0
+	}
+	if window.C >= window.Data.n {
+		window.C = window.Data.n - 1
+	}
+	if prev != window.C {
+		window.Data.Load(window.C)
+		window.SetImageRGBA(window.Data.images[window.C], window.Data.rgbas[window.C])
+	}
 }

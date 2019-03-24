@@ -9,23 +9,31 @@ import (
 )
 
 func main() {
-	image, err := loadImage(os.Args[1])
+	if len(os.Args) < 2 {
+		fmt.Printf("%s: required at least one argument\n", os.Args[0])
+		return
+	}
+	err := imview.InitProcessNextImages(os.Args[1:])
+	if err != nil {
+		fmt.Printf("InitProcessNextImages: %+v, args: %+v\n", err, os.Args[1:])
+		return
+	}
+	image, imageRGBA, err := loadImage(os.Args[1])
 	if err != nil {
 		fmt.Printf("loadImage: %+v\n", err)
 		return
 	}
-	err = imview.ShowSingle(image)
+	err = imview.ShowSingle(image, imageRGBA)
 	if err != nil {
 		fmt.Printf("Show: %+v\n", err)
 	}
 }
 
-// loadImages loads all images given by their filenames
-func loadImage(path string) (*image.RGBA, error) {
+func loadImage(path string) (image.Image, *image.RGBA, error) {
 	im, err := imview.LoadImage(path)
 	if err != nil {
 		fmt.Printf("LoadImage: %s: %v\n", path, err)
-		return nil, err
+		return nil, nil, err
 	}
-	return imview.ImageToRGBA(im), nil
+	return im, imview.ImageToRGBA(im), nil
 }
