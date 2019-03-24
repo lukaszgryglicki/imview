@@ -1,6 +1,6 @@
 GO_BIN_FILES=cmd/imview/main.go cmd/iview/main.go
 GO_LIB_FILES=run.go	texture.go util.go window.go
-GO_BIN_CMDS=github.com/lukaszgryglicki/imview/cmd/imview github.com/lukaszgryglicki/iview/cmd/iview
+GO_BIN_CMDS=github.com/lukaszgryglicki/imview/cmd/imview github.com/lukaszgryglicki/imview/cmd/iview
 GO_ENV=CGO_ENABLED=1
 GO_BUILD=go build -ldflags '-s -w'
 GO_INSTALL=go install -ldflags '-s'
