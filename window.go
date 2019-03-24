@@ -126,9 +126,9 @@ func (window *Window) DrawImage() {
 }
 
 // Move - moving between images
-func (window *Window) Move(offset int) {
+func (window *Window) Move(offset int) bool {
 	if offset == 0 {
-		return
+		return false
 	}
 	prev := window.C
 	window.C += offset
@@ -138,6 +138,7 @@ func (window *Window) Move(offset int) {
 	if window.C >= window.Data.n {
 		window.C = window.Data.n - 1
 	}
+	load := false
 	if prev != window.C {
 		ok := false
 		inc := 1
@@ -145,7 +146,7 @@ func (window *Window) Move(offset int) {
 			inc = -1
 		}
 		for {
-			err := window.Data.Load(window.C)
+			l, err := window.Data.Load(window.C)
 			if err != nil {
 				window.C += inc
 				if window.C == -1 || window.C == window.Data.n {
@@ -153,15 +154,17 @@ func (window *Window) Move(offset int) {
 					break
 				}
 			} else {
+				load = l
 				ok = true
 				break
 			}
 		}
-    fmt.Printf("Move(%d) from %d to %d (cached %d/%d), ok: %v\n", offset, prev, window.C, window.Data.l, window.Data.n, ok)
+		fmt.Printf("Move(%d) from %d to %d (cached %d/%d), ok: %v\n", offset, prev, window.C, window.Data.l, window.Data.n, ok)
 		if ok {
 			window.SetImageRGBA(window.Data.images[window.C], window.Data.rgbas[window.C])
-      title := fmt.Sprintf("%d: %s (cached %d/%d)", window.C, window.Data.names[window.C], window.Data.l, window.Data.n)
+			title := fmt.Sprintf("%d: %s (cached %d/%d)", window.C, window.Data.names[window.C], window.Data.l, window.Data.n)
 			window.SetTitle(title)
 		}
 	}
+	return load
 }

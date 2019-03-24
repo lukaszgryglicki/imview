@@ -62,7 +62,8 @@ func ProcessNextImages(ni int) int {
 	ch := make(chan error)
 	for _, idx := range m {
 		go func(i int, c chan error) {
-			c <- gdata.Load(i)
+			_, err := gdata.Load(i)
+			c <- err
 		}(idx, ch)
 		nT++
 		if nT == thrN {
@@ -129,25 +130,25 @@ func UnprocessNextImages(ni int) int {
 }
 
 // Load image at given index
-func (imd *ImagesData) Load(i int) error {
+func (imd *ImagesData) Load(i int) (bool, error) {
 	if imd.status[i] != 0 {
 		if imd.status[i] == -1 {
-			return fmt.Errorf("image %d/%s is marked as failed", i, imd.names[i])
+			return false, fmt.Errorf("image %d/%s is marked as failed", i, imd.names[i])
 		}
-		return nil
+		return false, nil
 	}
 	im, err := LoadImage(imd.names[i])
 	if err != nil {
 		imd.status[i] = -1
 		fmt.Printf("Load: %s: %+v\n", imd.names[i], err)
-		return err
+		return false, err
 	}
 	imd.images[i] = im
 	imd.rgbas[i] = ImageToRGBA(im)
 	imd.status[i] = 1
-	gdata.l ++
+	gdata.l++
 	fmt.Printf("Loaded %d image\n", i)
-	return nil
+	return true, nil
 }
 
 func glInit() error {
@@ -179,6 +180,7 @@ func loadStats() {
 
 func keyboardCallbackFunc(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	if action == glfw.Press || action == glfw.Repeat {
+		load := false
 		if key == glfw.KeyEscape || key == glfw.KeyQ {
 			w.SetShouldClose(true)
 		} else if key == glfw.KeyL {
@@ -186,11 +188,11 @@ func keyboardCallbackFunc(w *glfw.Window, key glfw.Key, scancode int, action glf
 		} else if key == glfw.KeyF {
 			gwindow.ToggleFullscreen()
 		} else if key == glfw.KeyRight {
-			gwindow.Move(1)
+			load = gwindow.Move(1)
 		} else if key == glfw.KeyUp {
-			gwindow.Move(10)
+			load = gwindow.Move(10)
 		} else if key == glfw.KeyPageUp {
-			gwindow.Move(100)
+			load = gwindow.Move(100)
 		} else if key == glfw.KeyEnd {
 			gwindow.Move(2000000000)
 		} else if key == glfw.KeyLeft {
@@ -224,6 +226,9 @@ func keyboardCallbackFunc(w *glfw.Window, key glfw.Key, scancode int, action glf
 		}
 		if gdata.l > 300 {
 			UnprocessNextImages(gdata.l - 300)
+		} else if load {
+			fmt.Printf("Auto preloading\n")
+			ProcessNextImages(1)
 		}
 		fmt.Printf("Current: %d/%d: %s (%d cached)\n", gwindow.C, gdata.n, gdata.names[gwindow.C], gdata.l)
 	}
@@ -247,7 +252,7 @@ func ShowSingle(image image.Image, rgba *image.RGBA) error {
 	gdata.rgbas[0] = rgba
 	gdata.status[0] = 1
 	window.Data = &gdata
-  title := fmt.Sprintf("%d: %s (cached %d/%d)", window.C, window.Data.names[window.C], window.Data.l, window.Data.n)
+	title := fmt.Sprintf("%d: %s (cached %d/%d)", window.C, window.Data.names[window.C], window.Data.l, window.Data.n)
 	window.SetTitle(title)
 
 	// Keyboard
