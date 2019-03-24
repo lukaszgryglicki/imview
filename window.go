@@ -1,18 +1,21 @@
 package imview
 
 import (
+	"fmt"
 	"image"
 
-	"github.com/go-gl/gl/v2.1/gl"
-	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/gl/v3.2-compatibility/gl"
+	"github.com/go-gl/glfw/v3.2/glfw"
 )
 
+// Window - holds window data
 type Window struct {
 	*glfw.Window
 	Image   image.Image
 	Texture *Texture
 }
 
+// NewWindow - creates a new window
 func NewWindow(im image.Image) (*Window, error) {
 	const maxSize = 1200
 	w := im.Bounds().Size().X
@@ -34,6 +37,7 @@ func NewWindow(im image.Image) (*Window, error) {
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	window, err := glfw.CreateWindow(w, h, "imview", nil, nil)
 	if err != nil {
+		fmt.Printf("glfw.CreateWindow: %+v\n", err)
 		return nil, err
 	}
 
@@ -47,6 +51,7 @@ func NewWindow(im image.Image) (*Window, error) {
 	return result, nil
 }
 
+// SetImage - sets window image
 func (window *Window) SetImage(im image.Image) {
 	window.Image = im
 	window.Texture.SetImage(im)
@@ -57,6 +62,7 @@ func (window *Window) onRefresh(x *glfw.Window) {
 	window.Draw()
 }
 
+// Draw - draws window
 func (window *Window) Draw() {
 	window.MakeContextCurrent()
 	gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -64,6 +70,7 @@ func (window *Window) Draw() {
 	window.SwapBuffers()
 }
 
+// DrawImage - draws window image
 func (window *Window) DrawImage() {
 	const padding = 0
 	iw := window.Image.Bounds().Size().X

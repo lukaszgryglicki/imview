@@ -1,22 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"os"
 
-	"github.com/fogleman/imview"
+	"github.com/lukaszgryglicki/imview"
 )
 
 func main() {
-	images := LoadImages(os.Args[1:])
-	imview.Show(images...)
+	images := loadImages(os.Args[1:])
+	err := imview.Show(images...)
+	if err != nil {
+		fmt.Printf("Show: %+v\n", err)
+	}
 }
 
-func LoadImages(paths []string) []*image.RGBA {
+// loadImages loads all images given by their filenames
+func loadImages(paths []string) []*image.RGBA {
 	var result []*image.RGBA
 	for _, path := range paths {
 		im, err := imview.LoadImage(path)
 		if err != nil {
+			fmt.Printf("LoadImage: %s: %v\n", path, err)
 			continue
 		}
 		result = append(result, imview.ImageToRGBA(im))
