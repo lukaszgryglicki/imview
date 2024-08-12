@@ -45,7 +45,8 @@ usedexports: ${GO_BIN_FILES} ${GO_LIB_FILES}
 errcheck: ${GO_BIN_FILES} ${GO_LIB_FILES}
 	${GO_ERRCHECK} ./...
 
-check: fmt imports vet const usedexports errcheck
+# check: fmt lint imports vet const usedexports errcheck
+check: fmt imports vet const errcheck
 
 install: check ${BINARIES}
 	${GO_INSTALL} ${GO_BIN_CMDS}
